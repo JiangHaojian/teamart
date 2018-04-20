@@ -137,11 +137,15 @@ class UserController extends Controller
         //判断当前用户是否是一级代理商
         $parterid = User::select('parter_id')->find(Auth::user()->id)->toArray()['parter_id'];
         if($parterid == $this->getFirstAgentId()){
-            $user = User::find($uid);
-            $user->parter_id = $this->getSecondAgentId();
-            $user->pid = Auth::user()->id;
-            $user->save();
-            return true;
+            //判断当前一级代理商所属的二级代理商数量是否大于十个
+            $count = User::where('pid',Auth::user()->id)->count();
+            if($count < 10){
+                $user = User::find($uid);
+                $user->parter_id = $this->getSecondAgentId();
+                $user->pid = Auth::user()->id;
+                $user->save();
+                return true;
+            }
         }
         return false;
     }
