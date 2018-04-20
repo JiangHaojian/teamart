@@ -69,6 +69,7 @@ class LoginController extends Controller
         if (isset($puser->id)) {
             $user = User::find(Auth::user()->id);
             $user->pid = $id;
+            dd($user->pid);
             $user->save();
         }
     }

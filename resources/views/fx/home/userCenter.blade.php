@@ -135,7 +135,7 @@
 					<p class="chayefont fz-14">我的账号</p>
 				</a>
 			</li>
-			@if (isset(Auth::user()->type) && Auth::user()->type < 2)
+			@if (isset(Auth::user()->type) && Auth::user()->type <= 2)
 			<li class="pull-left txt-c">
 				<a href="{{url('/home/userasset')}}">
 					<div class="txt-c usercenter_nav_icon">

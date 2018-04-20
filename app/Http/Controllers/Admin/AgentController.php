@@ -48,10 +48,14 @@ class AgentController extends Controller
 
     //数据查询
     public function indexData () {
+//        $lists = DB::table('user')->join('parter','user.parter_id','=','parter.id')
+//                ->where('user.type',1)
+//                ->whereNull('user.deleted_at')
+//                ->whereNull('parter.deleted_at');
         $lists = DB::table('user')->join('parter','user.parter_id','=','parter.id')
-                ->where('user.type',1)
-                ->whereNull('user.deleted_at')
-                ->whereNull('parter.deleted_at');
+            ->whereIn('user.type',[1,2])
+            ->whereNull('user.deleted_at')
+            ->whereNull('parter.deleted_at');
         return $lists;
     }
 
@@ -208,7 +212,10 @@ class AgentController extends Controller
     {
         $bro = Brokerage::orderBy('created_at','desc')->first();//获取最后一次结账日期
         $remain = 0;
-        $parter = Parter::find($id);//分销商角色信息
+//        $parter = Parter::find($id);//分销商角色信息
+        $parter = Parter::join('user','parter.id','=','parter_id')
+                ->where('user.id',$id)->first();
+
         $orders = Order::where('pid',$id)->where('state','close');
         $prices = Order::where('pid',$id)->where('state','close');
         if (!empty($bro)) {

@@ -35,7 +35,7 @@ class UserRole
         } 
 
         //分销商时
-        if ($role == 'sell' && $type != 1) return Redirect::to('/layout');
+        if ($role == 'sell' && $type != 1 && $type != 2) return Redirect::to('/layout');
 
         //平台用户时
         if ($role == 'user' && $type < 1) return Redirect::to('/admin/layout');

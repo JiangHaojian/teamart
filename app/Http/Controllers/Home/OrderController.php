@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Home;
 
+use App\Brokerage;
 use App\Product;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -149,22 +150,78 @@ class OrderController extends Controller
 		return 0;
 	}
 
-	//支付成功接口
-	public function pay (Request $request, $id) 
-	{
-		$model = Order::find($id);
-		$address = Address::where('user_id',Auth::user()->id)->where('state',1)->first();
-		$model->date = date('Y-m-d H:i:s');
-		$model->price = $request->price;
-		$model->state = 'paid';
-		$model->method = $request->method;
-		if (!empty($address->id) && $request->method != 'self') {
-			$model->address_id = $address->id;
-		}
-		$model->memo = $request->memo;
-		if ($model->save()) return 1;
-		return 0;
-	}
+//	//支付成功接口
+//	public function pay (Request $request, $id)
+//	{
+//		$model = Order::find($id);
+//		$address = Address::where('user_id',Auth::user()->id)->where('state',1)->first();
+//		$model->date = date('Y-m-d H:i:s');
+//		$model->price = $request->price;
+//		$model->state = 'paid';
+//		$model->method = $request->method;
+//		if (!empty($address->id) && $request->method != 'self') {
+//			$model->address_id = $address->id;
+//		}
+//		$model->memo = $request->memo;
+//		if ($model->save()) return 1;
+//		return 0;
+//	}
+
+    //支付成功接口
+    public function pay (Request $request, $id)
+    {
+        $model = Order::find($id);
+        $address = Address::where('user_id',Auth::user()->id)->where('state',1)->first();
+        $model->date = date('Y-m-d H:i:s');
+        $model->price = $request->price;
+        $model->state = 'paid';
+        $model->method = $request->method;
+        if (!empty($address->id) && $request->method != 'self') {
+            $model->address_id = $address->id;
+        }
+        $model->memo = $request->memo;
+        if ($model->save()) {
+            //计算提成
+            return 1;
+        }
+        return 0;
+    }
+
+    //计算提成并保存
+    public function commission($price){
+        $user1 = User::select('parter_id','pid')->find(Auth::user()->id);
+        if(!is_null($user1->pid)){
+            $user2 = User::find($user1->pid);
+            $secondAgent = $this->getSecondAgent();
+            //如果普通用户绑定了二级代理商。按二级代理商比例计算提成给该二级代理商
+            if($user2->parter_id == $secondAgent['id']){
+                $secondscale = $secondAgent['scale'];
+                $user2->sell_count = $user2->sell_count + $price * $secondscale;
+                if(!is_null($user2->pid)) {
+                    $user3 = User::find($user2->pid);
+                    $firstAgent = $this->getFirstAgent();
+                    //如果该二级代理商绑定了一级代理商。按一级代理商比例计算提成给该一级代理商
+                    if ($user3->parter_id == $firstAgent['id']) {
+                        $firstscale = $firstAgent['scale'];
+                        $user3->sell_count = $user3->sell_count + $price * $secondscale * $firstscale;
+                        $user2->save();
+                        $user3->save();
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    //根据name字段模糊查询找出一级代理商
+    public function getFirstAgent(){
+        return Parter::where('name','like','%一%')->orWhere('name','like','%1%')->select('id','scale')->get()->toArray();
+    }
+
+    //根据name字段模糊查询找出二级代理商id
+    public function getSecondAgent(){
+        return Parter::where('name','like','%二%')->orWhere('name','like','%2%')->select('id','scale')->get()->toArray();
+    }
 
 	//订单列表数据
 	public function orderListData(Request $request)

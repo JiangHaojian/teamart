@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Home;
 
+use App\Parter;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
@@ -36,29 +37,114 @@ class UserController extends Controller
 		return view(config('app.theme').'.home.userCenter')->with(['sells'=>$sells,'prices'=>$prices,'title'=>$title,'footer'=>$footer]);
 	}
 
-	//个人资产
-	public function userAsset (Request $request) 
-	{
-		$data = Brokerage::where('user_id',Auth::user()->id)->orderBy('created_at','desc')->first();
-		$check = 'false'; 
-		$await = 0;
-		if (!empty($data)) {
-			$check = $data->created_at;
-			$await = $data->remain;
-		}
-		$allprices = $this->brokerage();//累计金额
-		$prices = $this->brokerage($check) + $await;//可提现余额
-		$title = '个人资产';
-		$datas = ['data'=>$data,'title'=>$title,'allprices'=>$allprices,'prices'=>$prices];
-		if (session('webType') == 1){ //客户端是否为微信浏览器
-			$res = $this->snsWx($request);
-			$datas['appid'] = $res['appid'];
-			$datas['noncestr'] = $res['noncestr'];
-			$datas['timestamp'] = $res['timestamp'];
-			$datas['sign'] = $res['sign'];
-		}
-		return view(config('app.theme').'.home.userAssets')->with($datas);
-	}
+//	//个人资产
+//	public function userAsset (Request $request)
+//	{
+//		$data = Brokerage::where('user_id',Auth::user()->id)->orderBy('created_at','desc')->first();
+//		$check = 'false';
+//		$await = 0;
+//		if (!empty($data)) {
+//			$check = $data->created_at;
+//			$await = $data->remain;
+//		}
+//		$allprices = $this->brokerage();//累计金额
+//		$prices = $this->brokerage($check) + $await;//可提现余额
+//		$title = '个人资产';
+//		$datas = ['data'=>$data,'title'=>$title,'allprices'=>$allprices,'prices'=>$prices];
+//		if (session('webType') == 1){ //客户端是否为微信浏览器
+//			$res = $this->snsWx($request);
+//			$datas['appid'] = $res['appid'];
+//			$datas['noncestr'] = $res['noncestr'];
+//			$datas['timestamp'] = $res['timestamp'];
+//			$datas['sign'] = $res['sign'];
+//		}
+//		return view(config('app.theme').'.home.userAssets')->with($datas);
+//	}
+
+    //个人资产
+    public function userAsset (Request $request)
+    {
+        $data = Brokerage::where('user_id',Auth::user()->id)->orderBy('created_at','desc')->first();
+        $check = 'false';
+        $await = 0;
+        if (!empty($data)) {
+            $check = $data->created_at;
+            $await = $data->remain;
+        }
+        $allprices = $this->brokerage();//累计金额
+        $prices = $this->brokerage($check) + $await;//可提现余额
+        $title = '个人资产';
+        $datas = ['data'=>$data,'title'=>$title,'allprices'=>$allprices,'prices'=>$prices];
+        if (session('webType') == 1){ //客户端是否为微信浏览器
+            $res = $this->snsWx($request);
+            $datas['appid'] = $res['appid'];
+            $datas['noncestr'] = $res['noncestr'];
+            $datas['timestamp'] = $res['timestamp'];
+            $datas['sign'] = $res['sign'];
+        }
+        $userInfo = $this->getUserInfo(Auth::user()->id);
+        //////////////
+
+        return view(config('app.theme').'.home.userAssets')->with($datas)->with($userInfo);
+    }
+
+	//获取绑定用户信息
+    public function getUserInfo($pid){
+	    $users = User::where('pid',$pid)->select('id','name','openid','phone')->get();
+	    $userInfo = array();
+        foreach ($users as $user){
+            $userInfo[] = ['name'=>$user->name,'openid'=>$user->openid,
+                            'phone'=>$user->phone,'sum_price'=>$this->getUserPrice($user->id)];
+        }
+	    return $userInfo;
+    }
+
+    //获取用户消费总额
+    public function getUserPrice($uid){
+	    $price = Order::where('user_id',$uid)
+            ->where('state','paid')
+            ->sum('price');
+	    return $price;
+    }
+
+    //获取用户消费记录
+    public function getUserNotes($uid){
+	    $notes = Order::join('order_product','order.id','=','order_id')
+            ->join('product','product_id','=','product.id')
+            ->select('product.name','order.price')
+            ->where('order.user_id',$uid)
+            ->get()->toArray();
+        return $notes;
+    }
+
+    //根据手机号码查找用户
+    public function getUserByPhone($phone){
+	    return User::where('phone',$phone)->select('name','email')->get()->toArray();
+    }
+
+    //根据name字段模糊查询找出一级代理商id
+    public function getFirstAgentId(){
+	    return Parter::where('name','like','%一%')->orWhere('name','like','%1%')->select('id')->get()->toArray()['id'];
+    }
+
+    //根据name字段模糊查询找出二级代理商id
+    public function getSecondAgentId(){
+        return Parter::where('name','like','%二%')->orWhere('name','like','%2%')->select('id')->get()->toArray()['id'];
+    }
+
+    //一级代理商提升普通用户为二级代理商
+    public function elevation($uid){
+        //判断当前用户是否是一级代理商
+        $parterid = User::select('parter_id')->find(Auth::user()->id)->toArray()['parter_id'];
+        if($parterid == $this->getFirstAgentId()){
+            $user = User::find($uid);
+            $user->parter_id = $this->getSecondAgentId();
+            $user->pid = Auth::user()->id;
+            $user->save();
+            return true;
+        }
+        return false;
+    }
 
     //分享
     public function snsWx($request)

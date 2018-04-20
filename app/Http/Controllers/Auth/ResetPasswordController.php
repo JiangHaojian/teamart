@@ -48,7 +48,7 @@ class ResetPasswordController extends Controller
         $user = User::where('email',$email)->first();
         if (empty($user->email)) return Redirect::back()->withError('邮箱输入有误');
         $user->password = bcrypt($pas1);
-        if ($user->save()) return Redirect::back()->withError('ok');
+        if ($user->save()) return Redirect::back()->withError('ok');///////////////////////////////
         return Redirect::back()->withError('重置密码失败');
     }
 
